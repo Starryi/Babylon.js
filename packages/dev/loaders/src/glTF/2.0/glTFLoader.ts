@@ -1118,30 +1118,9 @@ export class GLTFLoader implements IGLTFLoader {
             promises.push(
                 this._loadVertexAccessorAsync(`/accessors/${accessor.index}`, accessor, kind).then((babylonVertexBuffer) => {
                     if (babylonVertexBuffer.getKind() === VertexBuffer.PositionKind && !this.parent.alwaysComputeBoundingBox && !babylonMesh.skeleton) {
-                        if (accessor.min && accessor.max) {
-                            const min = TmpVectors.Vector3[0].copyFromFloats(...(accessor.min as [number, number, number]));
-                            const max = TmpVectors.Vector3[1].copyFromFloats(...(accessor.max as [number, number, number]));
-                            if (accessor.normalized && accessor.componentType !== AccessorComponentType.FLOAT) {
-                                let divider = 1;
-                                switch (accessor.componentType) {
-                                    case AccessorComponentType.BYTE:
-                                        divider = 127.0;
-                                        break;
-                                    case AccessorComponentType.UNSIGNED_BYTE:
-                                        divider = 255.0;
-                                        break;
-                                    case AccessorComponentType.SHORT:
-                                        divider = 32767.0;
-                                        break;
-                                    case AccessorComponentType.UNSIGNED_SHORT:
-                                        divider = 65535.0;
-                                        break;
-                                }
-                                const oneOverDivider = 1 / divider;
-                                min.scaleInPlace(oneOverDivider);
-                                max.scaleInPlace(oneOverDivider);
-                            }
-                            babylonGeometry._boundingInfo = new BoundingInfo(min, max);
+                        const babylonBoundingInfo = this._loadBoundingInfo(accessor);
+                        if (babylonBoundingInfo) {
+                            babylonGeometry._boundingInfo = babylonBoundingInfo;
                             babylonGeometry.useBoundingInfoFromGeometry = true;
                         }
                     }
@@ -1881,6 +1860,35 @@ export class GLTFLoader implements IGLTFLoader {
         bufferView._data = this.loadBufferAsync(`/buffers/${buffer.index}`, buffer, bufferView.byteOffset || 0, bufferView.byteLength);
 
         return bufferView._data;
+    }
+
+    public _loadBoundingInfo(positionAccessor: IAccessor): Nullable<BoundingInfo> {
+        if (positionAccessor.min && positionAccessor.max) {
+            const min = TmpVectors.Vector3[0].copyFromFloats(...(positionAccessor.min as [number, number, number]));
+            const max = TmpVectors.Vector3[1].copyFromFloats(...(positionAccessor.max as [number, number, number]));
+            if (positionAccessor.normalized && positionAccessor.componentType !== AccessorComponentType.FLOAT) {
+                let divider = 1;
+                switch (positionAccessor.componentType) {
+                    case AccessorComponentType.BYTE:
+                        divider = 127.0;
+                        break;
+                    case AccessorComponentType.UNSIGNED_BYTE:
+                        divider = 255.0;
+                        break;
+                    case AccessorComponentType.SHORT:
+                        divider = 32767.0;
+                        break;
+                    case AccessorComponentType.UNSIGNED_SHORT:
+                        divider = 65535.0;
+                        break;
+                }
+                const oneOverDivider = 1 / divider;
+                min.scaleInPlace(oneOverDivider);
+                max.scaleInPlace(oneOverDivider);
+            }
+            return new BoundingInfo(min, max);
+        }
+        return null;
     }
 
     private _loadAccessorAsync(context: string, accessor: IAccessor, constructor: TypedArrayConstructor): Promise<ArrayBufferView> {

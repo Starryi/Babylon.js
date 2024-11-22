@@ -116,13 +116,25 @@ export class KHR_draco_mesh_compression implements IGLTFLoaderExtension {
             loadAttribute("WEIGHTS_0", VertexBuffer.MatricesWeightsKind);
             loadAttribute("COLOR_0", VertexBuffer.ColorKind);
 
+            const positionAccessor = ArrayItem.TryGet(this._loader.gltf.accessors, primitive.attributes["POSITION"]);
+
             const bufferView = ArrayItem.Get(extensionContext, this._loader.gltf.bufferViews, extension.bufferView) as IBufferViewDraco;
             if (!bufferView._dracoBabylonGeometry) {
                 bufferView._dracoBabylonGeometry = this._loader.loadBufferViewAsync(`/bufferViews/${bufferView.index}`, bufferView).then((data) => {
                     const dracoCompression = this.dracoCompression || DracoCompression.Default;
-                    return dracoCompression._decodeMeshToGeometryForGltfAsync(babylonMesh.name, this._loader.babylonScene, data, attributes, normalized).catch((error) => {
-                        throw new Error(`${context}: ${error.message}`);
-                    });
+                    return dracoCompression
+                        ._decodeMeshToGeometryForGltfAsync(babylonMesh.name, this._loader.babylonScene, data, attributes, normalized)
+                        .catch((error) => {
+                            throw new Error(`${context}: ${error.message}`);
+                        })
+                        .then((babylonGeometry) => {
+                            const babylonBoundingInfo = positionAccessor && this._loader._loadBoundingInfo(positionAccessor);
+                            if (babylonBoundingInfo) {
+                                babylonGeometry._boundingInfo = babylonBoundingInfo;
+                                babylonGeometry.useBoundingInfoFromGeometry = true;
+                            }
+                            return babylonGeometry;
+                        });
                 });
             }
 
